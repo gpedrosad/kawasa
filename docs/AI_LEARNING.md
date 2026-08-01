@@ -5,7 +5,7 @@ Complementa el `README.md`: acá va **contexto de decisiones, estado real y lecc
 
 **Repo:** [github.com/gpedrosad/kawasa](https://github.com/gpedrosad/kawasa)  
 **Producción:** [kawasa.vercel.app](https://kawasa.vercel.app)  
-**Última actualización de este doc:** 2026-08-01 (automatización supp → nota de voz)
+**Última actualización de este doc:** 2026-08-01 (qualify+audio documentado, sin implementar)
 
 ---
 
@@ -15,13 +15,16 @@ Base Next.js 15 (App Router) + TypeScript para un CRM sobre **Kapso** (WhatsApp 
 
 Hoy es una **base operativa** (enviar mensajes + recibir webhooks firmados), no un CRM completo con UI/DB/IA.
 
+**Producto:** [`docs/PRODUCT_AGENDAPP.md`](PRODUCT_AGENDAPP.md) (hechos).  
+**Flujo primer contacto qualify→audio (solo doc, no cierre, no implementar):** [`docs/KAPSO_WHATSAPP_QUALIFY.md`](KAPSO_WHATSAPP_QUALIFY.md).
+
 | Capa | Estado |
 |------|--------|
 | Cliente Kapso + env Zod | Listo |
 | `POST /api/whatsapp/send-text` / `send-audio` | Listo |
 | `POST /api/webhooks/kapso` + HMAC | Listo |
 | Handlers de webhook | Log + automatización `supp` → nota de voz |
-| Repositories (Prisma/DB) | Solo interfaces |
+| Repositories / Supabase KaWa | Schema 3 tablas + persist incoming |
 | AI providers | Stubs |
 | UI CRM / bandeja | No existe |
 
@@ -53,6 +56,89 @@ Hoy es una **base operativa** (enviar mensajes + recibir webhooks firmados), no 
 
 - Remoto: `https://github.com/gpedrosad/kawasa.git`
 - Branch de prod: `main` (push → redeploy Vercel)
+
+### Supabase — SOLO proyecto KaWa
+
+**Regla dura:** en este repo solo se trabaja contra Supabase **KaWa**. Nunca contra Agendapp u otros.
+
+| Campo | Valor |
+|-------|--------|
+| Nombre | **KaWa** |
+| Project ref | `dkpihigjlifjvxiszkew` |
+| URL | `https://dkpihigjlifjvxiszkew.supabase.co` |
+| MCP | `https://mcp.supabase.com/mcp?project_ref=dkpihigjlifjvxiszkew` |
+| CLI link | `supabase/.temp/project-ref` → `dkpihigjlifjvxiszkew` |
+| Cursor rule | `.cursor/rules/supabase-kawa-only.mdc` (`alwaysApply`) |
+
+**Prohibido:** `yflufqybchxrqvscnwyo` (Agendapp / “gpedrosad's Project”). Fue el MCP por error al inicio; no migrar, no leer keys de prod, no aplicar SQL ahí.
+
+Checklist antes de tocar DB:
+
+1. `get_project_url` (MCP) → debe ser `https://dkpihigjlifjvxiszkew.supabase.co`
+2. Si no: corregir MCP / `supabase link --project-ref dkpihigjlifjvxiszkew` y reautenticar
+3. Recién ahí `list_tables` / migraciones / repos
+
+#### Schema minimalista (CRM + atribución Meta)
+
+```text
+contacts 1──* conversations 1──* messages
+     │              │                └── media en messages.media (jsonb)
+     │              └── 1 ad_touches (first-touch CTWA)
+     └──* conversions (pending → futuro Meta CAPI)
+              └── opcional FK ad_touch_id
+```
+
+| Tabla | Rol |
+|-------|-----|
+| `contacts` | phone único, nombre, metadata |
+| `conversations` | `id` = Kapso conversation UUID, FK contact |
+| `messages` | `provider_message_id` = wamid (único), direction, type, text, media jsonb |
+| `ad_touches` | First-touch Meta CTWA (`ctwa_clid`, campaign/ad ids, utm, raw) |
+| `conversions` | Eventos (`Lead`, `Purchase`, …) con `event_id` para dedup CAPI; `status=pending` hasta envío |
+
+- RLS on, **sin policies anon** → solo `service_role` desde el server.
+- Migraciones: `supabase/migrations/20260801054000_*` y `20260801054500_add_meta_ads_attribution.sql`
+- Persistencia webhook: `src/services/crm/persist-incoming.ts` (+ `persistAdTouch` si hay `referral`)
+- Registrar conversión (sin enviar aún): `recordConversion()` en `src/services/attribution/`
+- Cliente admin: `src/lib/supabase.ts`
+- Env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (también en Vercel prod)
+
+**Flujo Meta Ads (CTWA) — parcialmente listo**
+
+1. Usuario toca Click-to-WhatsApp ad → mensaje trae `referral.ctwa_clid`
+2. Guardamos `ad_touches` (first-touch por conversación, `channel=ctwa`)
+3. Cuando haya lead/compra: `recordConversion({ eventName: 'Lead', conversationId })`
+4. Luego un worker/CAPI marcará `conversions.status = sent` y optimizará el ad set en Ads Manager
+
+**Atribución desde WEB — NO implementar hasta que el usuario lo pida**
+
+Problema: desde la web **no** llega `referral` de Meta. Hay que inyectar el origen.
+
+Diseño acordado (cuando se pida):
+
+1. Endpoint ej. `POST /api/attribution/web` (o `GET` redirect):
+   - Input: `utm_*`, `fbclid`, opcional `_fbc`/`_fbp`, landing path
+   - Crea fila en `ad_touches` con `source=meta|web`, `channel=web`, `utm`, raw; genera código corto `ref` (ej. `w_8f3a2c`)
+   - Devuelve / redirige a:
+     `https://wa.me/541133017403?text=Hola%20ref%3Aw_8f3a2c`
+2. En webhook (`persist-incoming` / attribution):
+   - Parsear primer mensaje con patrón `ref:w_XXXX` (o similar)
+   - Matchear `ad_touches` por ese código (puede hacer falta columna `ref_code text unique` en `ad_touches`)
+   - Vincular `contact_id` + `conversation_id` al touch web
+3. Conversiones igual que CTWA: `recordConversion` → luego CAPI
+
+Alternativa frágil (no preferida): meter UTMs crudos en el `text` del `wa.me` sin fila previa en DB.
+
+Schema tip: hoy `ad_touches` ya tiene `channel` + `utm`; al implementar, agregar `ref_code` unique nullable.
+
+Botón web típico:
+
+```html
+<!-- Ideal: pegar a /api/attribution/web?utm_source=site&utm_campaign=home -->
+<a href="https://kawasa.vercel.app/api/attribution/web?utm_source=site&utm_campaign=home">
+  Escribinos por WhatsApp
+</a>
+```
 
 ---
 
@@ -222,9 +308,10 @@ kapso whatsapp messages send --phone-number-id 623041330889329 --to "+54911..." 
 2. **Routes HTTP delgadas** — lógica en `services/`.
 3. **Webhook verifica firma sobre raw body** — no parsear JSON antes de HMAC.
 4. **Tipado estricto** — evitar `any`; normalizar payloads en `normalize.ts`.
-5. **Repositories como puertos** — persistencia futura sin acoplar handlers a Prisma.
+5. **Repositories como puertos** — persistencia (Supabase KaWa) sin acoplar handlers al vendor.
 6. **AI desacoplada** — `AiProvider` + factory; no hardcodear un vendor en el webhook.
 7. **No inventar CRM UI** hasta que exista dominio/persistencia claros.
+8. **Supabase = solo KaWa** (`dkpihigjlifjvxiszkew`). Ver §2 y regla Cursor.
 
 ---
 
@@ -251,13 +338,11 @@ Importante: `voice: true` es lo que hace que Meta lo trate como audio grabado (P
 
 Orden razonable:
 
-1. Confirmar recepción real (mensaje WhatsApp → log en Vercel 200 + “Mensaje entrante”).
-2. Persistencia: Prisma + Postgres (Supabase u otro) implementando interfaces en `repositories/`.
-3. Idempotencia con `X-Idempotency-Key`.
-4. Auth en `/api/whatsapp/*` (hoy abiertas: cualquiera que conozca la URL puede spamear).
-5. Implementar un `AiProvider` y cablearlo en `handleIncomingMessage`.
-6. Bandeja CRM (UI) consumiendo repositories.
-7. Carpetas `functions/` y `workflows/` están vacías — reservadas para automatizaciones Kapso/futuras.
+1. Deploy código + env Supabase en Vercel; verificar persistencia en KaWa.
+2. Idempotencia con `X-Idempotency-Key`.
+3. Auth en `/api/whatsapp/*`.
+4. Meta CAPI (enviar `conversions` pending) + atribución web si se pide.
+5. Bandeja CRM (UI).
 
 ---
 
@@ -272,7 +357,10 @@ Orden razonable:
 - [x] Secret webhook Kapso = `KAPSO_WEBHOOK_SECRET` en Vercel
 - [x] Mensaje real entrante verificado en runtime logs (`Supp` → 200)
 - [x] Respuesta automática mínima: texto `supp` → nota de voz
-- [ ] Persistencia / UI CRM / IA
+- [x] Persistencia KaWa (contacts / conversations / messages)
+- [x] Atribución CTWA (`ad_touches`) + cola `conversions` (pending, sin CAPI aún)
+- [ ] Atribución WEB (`ref:` + `/api/attribution/web`) — documentado arriba; **no hacer hasta pedido explícito**
+- [ ] Envío Meta Conversions API + UI CRM / IA
 
 ---
 

@@ -5,6 +5,9 @@
       "headers": {
         "Authorization": "Bearer ${env:KAPSO_API_KEY}"
       }
+    },
+    "supabase": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=dkpihigjlifjvxiszkew"
     }
   }
 }

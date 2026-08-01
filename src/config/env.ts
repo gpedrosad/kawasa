@@ -17,6 +17,13 @@ const envSchema = z.object({
     .string()
     .url()
     .default("https://api.kapso.ai/meta/whatsapp"),
+  SUPABASE_URL: z
+    .string({ error: "SUPABASE_URL es requerida" })
+    .url()
+    .default("https://dkpihigjlifjvxiszkew.supabase.co"),
+  SUPABASE_SERVICE_ROLE_KEY: z
+    .string({ error: "SUPABASE_SERVICE_ROLE_KEY es requerida" })
+    .min(1, "SUPABASE_SERVICE_ROLE_KEY no puede estar vacía"),
   LOG_LEVEL: z
     .enum(["debug", "info", "warn", "error"])
     .default("info"),
@@ -48,6 +55,8 @@ export function getEnv(): Env {
     KAPSO_PHONE_NUMBER_ID: process.env.KAPSO_PHONE_NUMBER_ID,
     KAPSO_WEBHOOK_SECRET: process.env.KAPSO_WEBHOOK_SECRET,
     KAPSO_BASE_URL: process.env.KAPSO_BASE_URL,
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     LOG_LEVEL: process.env.LOG_LEVEL,
   });
 

@@ -1,3 +1,5 @@
+import type { AdReferral } from "@/types/attribution";
+
 export type MessageDirection = "inbound" | "outbound";
 
 export type MessageType =
@@ -74,6 +76,8 @@ export interface IncomingMessage {
   media?: Media;
   conversationId?: string;
   phoneNumberId?: string;
+  /** Referral CTWA si el usuario llegó desde un Meta ad. */
+  referral?: AdReferral;
   raw?: Record<string, unknown>;
 }
 

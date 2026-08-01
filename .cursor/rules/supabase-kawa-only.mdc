@@ -1,0 +1,29 @@
+---
+description: Solo trabajar en el proyecto Supabase KaWa (nunca Agendapp u otros)
+alwaysApply: true
+---
+
+# Supabase: solo KaWa
+
+En este repo (**kawasa / Kapso CRM**) el único proyecto Supabase permitido es **KaWa**.
+
+| Campo | Valor |
+|-------|--------|
+| Nombre | **KaWa** |
+| Project ref | `dkpihigjlifjvxiszkew` |
+| URL | `https://dkpihigjlifjvxiszkew.supabase.co` |
+
+## Obligatorio
+
+- MCP Supabase debe usar `project_ref=dkpihigjlifjvxiszkew`.
+- CLI: `supabase link --project-ref dkpihigjlifjvxiszkew` (ya linkeado en `supabase/.temp/project-ref`).
+- Migraciones, SQL, keys, env y código: **solo** contra KaWa.
+- Antes de `list_tables` / `apply_migration` / `execute_sql`, confirmar con `get_project_url` que la URL es `dkpihigjlifjvxiszkew`.
+
+## Prohibido
+
+- **No** usar ni modificar el proyecto `yflufqybchxrqvscnwyo` (Agendapp / “gpedrosad's Project”).
+- **No** cambiar el MCP a otro `project_ref` sin pedido explícito del usuario.
+- **No** mezclar schemas, datos ni service keys de otros proyectos Supabase.
+
+Si el MCP apunta a otro proyecto: detenerse, corregir la config a KaWa y reautenticar antes de seguir.

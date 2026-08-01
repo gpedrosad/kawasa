@@ -278,3 +278,6 @@ npm run lint
 ## Aprendizaje para IA
 
 Contexto vivo (estado real, IDs, lecciones, debug): [`docs/AI_LEARNING.md`](docs/AI_LEARNING.md). Actualizarlo cuando cambiemos algo relevante.
+
+Contexto AgendApp: [`docs/PRODUCT_AGENDAPP.md`](docs/PRODUCT_AGENDAPP.md).  
+Flujo WhatsApp primer contacto (**solo doc**, no cierre): [`docs/KAPSO_WHATSAPP_QUALIFY.md`](docs/KAPSO_WHATSAPP_QUALIFY.md).

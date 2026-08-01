@@ -1,3 +1,4 @@
+import { extractAdReferral } from "@/services/attribution/extract-referral";
 import type {
   Conversation,
   IncomingMessage,
@@ -148,6 +149,7 @@ export function normalizeIncomingMessage(
     media: extractMedia(message),
     conversationId: event.conversation?.id,
     phoneNumberId: event.phoneNumberId ?? event.conversation?.phoneNumberId,
+    referral: extractAdReferral(message) ?? undefined,
     raw: message,
   };
 

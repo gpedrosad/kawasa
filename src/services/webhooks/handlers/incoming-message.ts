@@ -3,12 +3,13 @@ import {
   isSuppTrigger,
   replySuppWithVoiceNote,
 } from "@/services/automations/supp-voice";
+import { persistIncomingMessage } from "@/services/crm/persist-incoming";
 import { normalizeIncomingMessage } from "@/services/webhooks/normalize";
 import type { WebhookEvent } from "@/types/webhook";
 
 /**
  * Procesa mensajes entrantes.
- * Aquí conectarás CRM, IA, automatizaciones, etc.
+ * Persistencia KaWa + automatizaciones.
  */
 export async function handleIncomingMessage(
   event: WebhookEvent,
@@ -32,6 +33,19 @@ export async function handleIncomingMessage(
     isNewConversation,
     textPreview: message.text?.slice(0, 120),
   });
+
+  try {
+    await persistIncomingMessage({
+      message,
+      conversation,
+      profileName: conversation?.contactName,
+    });
+  } catch (error) {
+    logger.error("Falló persistencia en KaWa", {
+      messageId: message.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   if (isSuppTrigger(message.text) && message.from) {
     try {

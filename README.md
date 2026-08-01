@@ -274,3 +274,7 @@ npm run lint
 3. Autenticación para las rutas de envío (`/api/whatsapp/*`)
 4. Idempotencia de webhooks con `X-Idempotency-Key`
 5. Bandeja CRM (UI) consumiendo repositories
+
+## Aprendizaje para IA
+
+Contexto vivo (estado real, IDs, lecciones, debug): [`docs/AI_LEARNING.md`](docs/AI_LEARNING.md). Actualizarlo cuando cambiemos algo relevante.

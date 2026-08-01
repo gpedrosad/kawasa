@@ -1,4 +1,8 @@
 import { logger } from "@/lib/logger";
+import {
+  isSuppTrigger,
+  replySuppWithVoiceNote,
+} from "@/services/automations/supp-voice";
 import { normalizeIncomingMessage } from "@/services/webhooks/normalize";
 import type { WebhookEvent } from "@/types/webhook";
 
@@ -18,15 +22,29 @@ export async function handleIncomingMessage(
     return;
   }
 
+  const { message, conversation, isNewConversation } = normalized;
+
   logger.info("Mensaje entrante recibido", {
-    messageId: normalized.message.id,
-    from: normalized.message.from,
-    type: normalized.message.type,
-    conversationId: normalized.conversation?.id,
-    isNewConversation: normalized.isNewConversation,
-    textPreview: normalized.message.text?.slice(0, 120),
+    messageId: message.id,
+    from: message.from,
+    type: message.type,
+    conversationId: conversation?.id,
+    isNewConversation,
+    textPreview: message.text?.slice(0, 120),
   });
 
-  // TODO: persistir con MessageRepository / ContactRepository
-  // TODO: encolar respuesta automática / AIProvider
+  if (isSuppTrigger(message.text) && message.from) {
+    try {
+      await replySuppWithVoiceNote({
+        to: message.from,
+        messageId: message.id,
+      });
+    } catch (error) {
+      logger.error("Falló automatización supp → nota de voz", {
+        messageId: message.id,
+        from: message.from,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 }

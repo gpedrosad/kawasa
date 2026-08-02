@@ -45,6 +45,7 @@ export interface Database {
           contact_id: string;
           phone_number_id: string | null;
           status: string;
+          stage: string;
           last_message_at: string | null;
           last_inbound_at: string | null;
           last_outbound_at: string | null;
@@ -57,6 +58,7 @@ export interface Database {
           contact_id: string;
           phone_number_id?: string | null;
           status?: string;
+          stage?: string;
           last_message_at?: string | null;
           last_inbound_at?: string | null;
           last_outbound_at?: string | null;
@@ -69,6 +71,7 @@ export interface Database {
           contact_id?: string;
           phone_number_id?: string | null;
           status?: string;
+          stage?: string;
           last_message_at?: string | null;
           last_inbound_at?: string | null;
           last_outbound_at?: string | null;

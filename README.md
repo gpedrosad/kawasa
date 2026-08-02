@@ -281,3 +281,6 @@ Contexto vivo (estado real, IDs, lecciones, debug): [`docs/AI_LEARNING.md`](docs
 
 Contexto AgendApp: [`docs/PRODUCT_AGENDAPP.md`](docs/PRODUCT_AGENDAPP.md).  
 Flujo WhatsApp primer contacto (**solo doc**, no cierre): [`docs/KAPSO_WHATSAPP_QUALIFY.md`](docs/KAPSO_WHATSAPP_QUALIFY.md).
+
+CRM funnel (kanban): [`/crm`](http://localhost:3000/crm) — arrastrar etapas; Lead/Ganado registran conversión.  
+Detalle: [`docs/CRM_FUNNEL.md`](docs/CRM_FUNNEL.md).

@@ -11,6 +11,14 @@ export default function HomePage() {
         API routes, servicios, webhooks firmados, tipado estricto e interfaces
         para IA y base de datos. Los secretos viven solo en el servidor.
       </p>
+      <p>
+        <a
+          href="/crm"
+          className="inline-flex rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+        >
+          Abrir funnel CRM
+        </a>
+      </p>
       <ul className="space-y-2 text-zinc-700">
         <li>
           <code className="rounded bg-zinc-100 px-1.5 py-0.5 text-sm">

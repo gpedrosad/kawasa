@@ -5,7 +5,7 @@ Complementa el `README.md`: acá va **contexto de decisiones, estado real y lecc
 
 **Repo:** [github.com/gpedrosad/kawasa](https://github.com/gpedrosad/kawasa)  
 **Producción:** [kawasa.vercel.app](https://kawasa.vercel.app)  
-**Última actualización de este doc:** 2026-08-01 (qualify+audio documentado, sin implementar)
+**Última actualización de este doc:** 2026-08-01 (CRM kanban + fix hydration fechas)
 
 ---
 
@@ -26,7 +26,7 @@ Hoy es una **base operativa** (enviar mensajes + recibir webhooks firmados), no 
 | Handlers de webhook | Log + automatización `supp` → nota de voz |
 | Repositories / Supabase KaWa | Schema 3 tablas + persist incoming |
 | AI providers | Stubs |
-| UI CRM / bandeja | No existe |
+| UI CRM / funnel kanban | `/crm` — drag etapas; Lead/Ganado → conversion |
 
 ---
 
@@ -310,12 +310,30 @@ kapso whatsapp messages send --phone-number-id 623041330889329 --to "+54911..." 
 4. **Tipado estricto** — evitar `any`; normalizar payloads en `normalize.ts`.
 5. **Repositories como puertos** — persistencia (Supabase KaWa) sin acoplar handlers al vendor.
 6. **AI desacoplada** — `AiProvider` + factory; no hardcodear un vendor en el webhook.
-7. **No inventar CRM UI** hasta que exista dominio/persistencia claros.
+7. **CRM funnel** en `/crm` (kanban); detalle inbox y auth siguen pendientes.
 8. **Supabase = solo KaWa** (`dkpihigjlifjvxiszkew`). Ver §2 y regla Cursor.
+9. **Fechas en UI client/SSR:** usar `formatDateTimeAr` — no `Intl` `es-AR` suelto (hydration).
 
 ---
 
-## 8b. Automatización: “supp” → nota de voz
+## 8b. CRM kanban (`/crm`)
+
+Doc completo: [`CRM_FUNNEL.md`](CRM_FUNNEL.md).
+
+Etapas: `nuevo` → `calificado` → `interesado` → `lead` → `ganado` / `perdido`
+
+- Drag & drop → `PATCH /api/crm/conversations/[id]/stage`
+- `lead` → conversión `Lead`; `ganado` → `Subscribe` (`conversions.status=pending`)
+- `event_id` = `{conversationId}:{EventName}`
+- **Sin auth** — no dejar público sin protección
+- Local: http://localhost:3000/crm · Prod: https://kawasa.vercel.app/crm
+
+### Lección: hydration en fechas del kanban
+
+`Intl.DateTimeFormat("es-AR")` produjo mismatch SSR/cliente (`a. m.` / espacios distintos).  
+Fix: `src/utils/datetime.ts` → `formatDateTimeAr` con `timeZone: America/Argentina/Buenos_Aires` + `hourCycle: h23`.
+
+## 8c. Automatización: “supp” → nota de voz
 
 Trigger (case-insensitive, opcional `!?.` al final): texto exacto `supp`.
 
@@ -342,7 +360,7 @@ Orden razonable:
 2. Idempotencia con `X-Idempotency-Key`.
 3. Auth en `/api/whatsapp/*`.
 4. Meta CAPI (enviar `conversions` pending) + atribución web si se pide.
-5. Bandeja CRM (UI).
+5. Auth en `/crm` + inbox del hilo (hoy kanban sin login).
 
 ---
 
@@ -359,8 +377,10 @@ Orden razonable:
 - [x] Respuesta automática mínima: texto `supp` → nota de voz
 - [x] Persistencia KaWa (contacts / conversations / messages)
 - [x] Atribución CTWA (`ad_touches`) + cola `conversions` (pending, sin CAPI aún)
-- [ ] Atribución WEB (`ref:` + `/api/attribution/web`) — documentado arriba; **no hacer hasta pedido explícito**
-- [ ] Envío Meta Conversions API + UI CRM / IA
+- [x] CRM kanban `/crm` (drag → stage → conversión Lead/Subscribe)
+- [ ] Auth en `/crm` + inbox del hilo
+- [ ] Atribución WEB (`ref:` + `/api/attribution/web`) — documentado; **no hasta pedido explícito**
+- [ ] Envío Meta Conversions API
 
 ---
 

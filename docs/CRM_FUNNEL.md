@@ -2,7 +2,7 @@
 
 Vista web para mover conversaciones WhatsApp por el embudo y marcar conversiones Meta.
 
-**Estado:** implementado (MVP). **Sin auth** — no exponer en público sin protección.
+**Estado:** implementado (MVP). Protegido con clave (`CRM_PASSWORD`, ver `src/middleware.ts`).
 
 ---
 

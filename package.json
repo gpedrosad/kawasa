@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync:kapso": "node --env-file=.env.local scripts/sync-kapso-history.mjs"
   },
   "dependencies": {
     "@kapso/whatsapp-cloud-api": "^0.2.3",

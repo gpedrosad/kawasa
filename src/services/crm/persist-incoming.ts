@@ -4,7 +4,7 @@ import { persistAdTouch } from "@/services/attribution/persist-ad-touch";
 import type { Json } from "@/types/database";
 import type { Conversation, IncomingMessage, Media } from "@/types/whatsapp";
 
-function toMediaJson(media: Media | undefined): Json | null {
+export function toMediaJson(media: Media | undefined): Json | null {
   if (!media) {
     return null;
   }
@@ -20,7 +20,7 @@ function toMediaJson(media: Media | undefined): Json | null {
   };
 }
 
-function resolveOccurredAt(timestamp: string | undefined): string | null {
+export function resolveOccurredAt(timestamp: string | undefined): string | null {
   if (!timestamp) {
     return null;
   }
@@ -59,6 +59,8 @@ export async function persistIncomingMessage(input: {
 
   const db = getSupabaseAdmin();
   const occurredAt = resolveOccurredAt(message.timestamp);
+  const profileName =
+    input.profileName ?? conversation?.contactName ?? message.contactName;
 
   const { data: contact, error: contactError } = await db
     .from("contacts")
@@ -66,7 +68,8 @@ export async function persistIncomingMessage(input: {
       {
         phone_number: phone,
         wa_id: phone,
-        profile_name: input.profileName ?? conversation?.contactName ?? null,
+        // Sin nombre no pisamos el que ya tenga el contacto.
+        ...(profileName ? { profile_name: profileName } : {}),
       },
       { onConflict: "phone_number" },
     )

@@ -325,7 +325,7 @@ Etapas: `nuevo` → `calificado` → `interesado` → `lead` → `ganado` / `per
 - Drag & drop → `PATCH /api/crm/conversations/[id]/stage`
 - `lead` → conversión `Lead`; `ganado` → `Subscribe` (`conversions.status=pending`)
 - `event_id` = `{conversationId}:{EventName}`
-- **Sin auth** — no dejar público sin protección
+- **Con clave** (2026-10-14): `src/middleware.ts` pide Basic Auth con `CRM_PASSWORD` para todo (páginas, `/api/crm/*`, `/api/whatsapp/*`). Quedan públicos solo `/api/webhooks/*` (HMAC) y `/sounds/*` (Meta descarga el audio). Sin `CRM_PASSWORD` no entra nadie. El repo es público: la clave nunca va en el código.
 - Local: http://localhost:3000/crm · Prod: https://kawasa.vercel.app/crm
 
 ### Lección: hydration en fechas del kanban
@@ -351,6 +351,31 @@ Archivos:
 - Override: `SUPP_VOICE_AUDIO_URL`
 
 Importante: `voice: true` es lo que hace que Meta lo trate como audio grabado (PTT), no como documento/archivo de sonido. El archivo debe ser OGG/OPUS.
+
+## 8d. Chats completos para leer o analizar con IA (2026-10-14)
+
+KaWa guarda **las dos direcciones**:
+
+- Entrantes: `message.received` → `persist-incoming.ts`.
+- Salientes (flujo Kapso, API o escritos desde la app): `message.sent/delivered/read/failed` → `handlers/status.ts` → `persist-outbound.ts`. El primer evento crea la fila; los siguientes solo suben `status`.
+- Origen en `messages.raw->kapso->>origin`: `cloud_api` (flujo/API), `business_app` (Gonzalo desde la app), `history_sync` (historial importado).
+- Historial y huecos: `npm run sync:kapso` (o `-- --since=YYYY-MM-DD`). Idempotente por wamid, respeta el 429 de Kapso.
+
+Kapso cierra la conversación tras 60 min sin mensajes (`inactivity_minutes` del webhook) y abre otra: **una charla = un contacto, no un `conversation_id`**. Por eso las vistas agrupan por contacto:
+
+| Vista | Para qué |
+|-------|----------|
+| `chat_threads` | Una fila por contacto: `transcript` (charla entera en texto, hora AR, autor), `ad_headline`/`ad_url`, `inbound_count`/`outbound_count`, `last_author`, `waiting_for_us`, `stage`. |
+| `chat_messages` | Un mensaje por fila con `author` (`contacto` / `bot_api` / `gonzalo_app`) y `body` limpio (audios con transcripción). |
+
+Migración: `supabase/migrations/20261014180000_chat_views_for_ai.sql` (`security_invoker`, solo service_role).
+
+Ejemplo (REST con service role):
+
+```bash
+curl -s "$SUPABASE_URL/rest/v1/chat_threads?select=profile_name,ad_headline,waiting_for_us,last_message_at,transcript&ad_headline=not.is.null&last_message_at=gte.2026-10-11&order=last_message_at.desc" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
+```
 
 ## 9. Deuda / próximos pasos sugeridos
 

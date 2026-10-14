@@ -76,6 +76,11 @@ export interface IncomingMessage {
   media?: Media;
   conversationId?: string;
   phoneNumberId?: string;
+  /** Teléfono del contacto según Kapso (sirve también para mensajes salientes). */
+  contactPhone?: string;
+  contactName?: string;
+  /** cloud_api (API/flujo), business_app (escrito desde la app), history_sync. */
+  origin?: string;
   /** Referral CTWA si el usuario llegó desde un Meta ad. */
   referral?: AdReferral;
   raw?: Record<string, unknown>;

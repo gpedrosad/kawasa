@@ -45,6 +45,14 @@ function readKapso(message: Record<string, unknown>) {
   return {
     direction: pickString(kapso, "direction") as MessageDirection | undefined,
     status: pickString(kapso, "status"),
+    origin: pickString(kapso, "origin"),
+    phoneNumber: pickString(kapso, "phone_number", "phoneNumber"),
+    contactName: pickString(kapso, "contact_name", "contactName"),
+    conversationId: pickString(
+      kapso,
+      "whatsapp_conversation_id",
+      "whatsappConversationId",
+    ),
     content: pickString(kapso, "content"),
     mediaUrl: pickString(kapso, "media_url", "mediaUrl"),
     mediaFilename: pickString(mediaData, "filename"),
@@ -147,8 +155,11 @@ export function normalizeIncomingMessage(
     status: kapso.status as IncomingMessage["status"],
     text: extractText(message),
     media: extractMedia(message),
-    conversationId: event.conversation?.id,
+    conversationId: event.conversation?.id ?? kapso.conversationId,
     phoneNumberId: event.phoneNumberId ?? event.conversation?.phoneNumberId,
+    contactPhone: event.conversation?.phoneNumber ?? kapso.phoneNumber,
+    contactName: kapso.contactName,
+    origin: kapso.origin,
     referral: extractAdReferral(message) ?? undefined,
     raw: message,
   };

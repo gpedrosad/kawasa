@@ -26,13 +26,13 @@ Columnas (`conversations.stage`):
 | `nuevo` | Nuevo | — |
 | `calificado` | Calificado | — |
 | `interesado` | Interesado | — |
-| `lead` | Lead | `Lead` → fila en `conversions` (`pending`) |
-| `ganado` | Ganado | `Subscribe` → `conversions` (`pending`) |
+| `lead` | Lead | `QualifiedLead` → `conversions` + Meta CAPI |
+| `ganado` | Ganado | `Purchase` (ARS 18.000) → `conversions` + Meta CAPI |
 | `perdido` | Perdido | — |
 
 Default al crear conversación (DB): `nuevo`.
 
-**Idempotencia:** `event_id = {conversationId}:{EventName}`. Re-arrastrar a Lead/Ganado no duplica la conversión.
+**Idempotencia:** `event_id = {contactId}:{EventName}`. Re-arrastrar a Lead/Ganado no duplica la conversión, y tampoco la duplica el evento automático del mismo escalón. Las tarjetas también avanzan solas (Lead por profesión, Ganado por pago). Detalle: [`CAPI_ESCALERA.md`](CAPI_ESCALERA.md).
 
 ---
 
@@ -40,8 +40,9 @@ Default al crear conversación (DB): `nuevo`.
 
 1. Abrís `/crm`
 2. Arrastrás la tarjeta a otra columna
-3. Si soltás en **Lead** o **Ganado**, se llama `recordConversion` (CAPI todavía no envía; queda `pending`)
+3. Si soltás en **Lead** o **Ganado**, se llama `recordConversion` y se manda a Meta (queda `pending` si Meta no está configurado)
 4. Badge **CTWA / ad** si hay `ad_touches` para esa conversación
+5. «Copiar link para mandarle»: link personal `/empezar?wa=<código>` para medir si lo abre y si paga
 
 ---
 
@@ -79,5 +80,4 @@ Usar siempre `formatDateTimeAr` (zona `America/Argentina/Buenos_Aires`, `hourCyc
 
 1. Auth staff
 2. Click en tarjeta → inbox del hilo (`messages`)
-3. Worker que envíe `conversions` pending a Meta CAPI
-4. Filtros por phone / CTWA / fecha
+3. Filtros por phone / CTWA / fecha

@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { maybeQualifyLead } from "@/services/attribution/qualify-lead";
 import {
   isSuppTrigger,
   replySuppWithVoiceNote,
@@ -34,8 +35,9 @@ export async function handleIncomingMessage(
     textPreview: message.text?.slice(0, 120),
   });
 
+  let persisted: Awaited<ReturnType<typeof persistIncomingMessage>> = null;
   try {
-    await persistIncomingMessage({
+    persisted = await persistIncomingMessage({
       message,
       conversation,
       profileName: conversation?.contactName,
@@ -45,6 +47,21 @@ export async function handleIncomingMessage(
       messageId: message.id,
       error: error instanceof Error ? error.message : String(error),
     });
+  }
+
+  if (persisted) {
+    try {
+      await maybeQualifyLead({
+        contactId: persisted.contactId,
+        conversationId: persisted.conversationId,
+        text: message.text,
+      });
+    } catch (error) {
+      logger.error("Falló la calificación automática del lead", {
+        messageId: message.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   if (isSuppTrigger(message.text) && message.from) {

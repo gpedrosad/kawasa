@@ -1,0 +1,3 @@
+{
+  "crons": [{ "path": "/api/attribution/flush", "schedule": "0 12 * * *" }]
+}

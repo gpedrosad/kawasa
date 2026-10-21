@@ -99,7 +99,7 @@ contacts 1──* conversations 1──* messages
 - RLS on, **sin policies anon** → solo `service_role` desde el server.
 - Migraciones: `supabase/migrations/20260801054000_*` y `20260801054500_add_meta_ads_attribution.sql`
 - Persistencia webhook: `src/services/crm/persist-incoming.ts` (+ `persistAdTouch` si hay `referral`)
-- Registrar conversión (sin enviar aún): `recordConversion()` en `src/services/attribution/`
+- Registrar conversión y mandarla a Meta CAPI: `recordConversion()` en `src/services/attribution/` (escalera en `docs/CAPI_ESCALERA.md`)
 - Cliente admin: `src/lib/supabase.ts`
 - Env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (también en Vercel prod)
 
@@ -405,7 +405,7 @@ Orden razonable:
 - [x] CRM kanban `/crm` (drag → stage → conversión Lead/Subscribe)
 - [ ] Auth en `/crm` + inbox del hilo
 - [ ] Atribución WEB (`ref:` + `/api/attribution/web`) — documentado; **no hasta pedido explícito**
-- [ ] Envío Meta Conversions API
+- [x] Envío Meta Conversions API (business_messaging) + escalera QualifiedLead / InitiateCheckout / Purchase — código listo, deploy pendiente (`docs/CAPI_ESCALERA.md`)
 
 ---
 

@@ -21,15 +21,17 @@ export interface AdReferral {
   raw?: Record<string, unknown>;
 }
 
+/**
+ * Eventos que acepta Meta para business_messaging (WhatsApp). `Lead` y `Subscribe`
+ * no existen ahí: quedan solo por filas viejas y se mandan como QualifiedLead / Purchase.
+ * @see https://developers.facebook.com/docs/marketing-api/conversions-api/business-messaging
+ */
 export type ConversionEventName =
-  | "Lead"
+  | "QualifiedLead"
+  | "InitiateCheckout"
   | "Purchase"
-  | "CompleteRegistration"
-  | "Schedule"
-  | "Contact"
-  | "SubmitApplication"
-  | "StartTrial"
-  | "Subscribe"
+  | "LeadSubmitted"
+  | "ViewContent"
   | (string & {});
 
 export type ConversionStatus = "pending" | "sent" | "failed" | "skipped";
@@ -51,6 +53,8 @@ export interface RecordConversionInput {
 
 export interface StoredConversion {
   id: string;
+  /** false si ya existía una conversión con el mismo event_id. */
+  created: boolean;
   eventName: string;
   eventId: string;
   status: ConversionStatus;

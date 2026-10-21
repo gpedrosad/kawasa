@@ -27,6 +27,13 @@ const envSchema = z.object({
   LOG_LEVEL: z
     .enum(["debug", "info", "warn", "error"])
     .default("info"),
+  /** Meta Conversions API (business_messaging). Sin token o dataset, las conversiones quedan pending. */
+  META_CAPI_ACCESS_TOKEN: z.string().min(1).optional(),
+  META_DATASET_ID: z.string().min(1).optional(),
+  META_WABA_ID: z.string().min(1).default("1196537218554691"),
+  META_TEST_EVENT_CODE: z.string().min(1).optional(),
+  /** Clave compartida con AgendApp para POST /api/attribution/events. */
+  KAWA_ATTRIBUTION_SECRET: z.string().min(16).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -58,6 +65,11 @@ export function getEnv(): Env {
     SUPABASE_URL: process.env.SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     LOG_LEVEL: process.env.LOG_LEVEL,
+    META_CAPI_ACCESS_TOKEN: process.env.META_CAPI_ACCESS_TOKEN,
+    META_DATASET_ID: process.env.META_DATASET_ID,
+    META_WABA_ID: process.env.META_WABA_ID,
+    META_TEST_EVENT_CODE: process.env.META_TEST_EVENT_CODE,
+    KAWA_ATTRIBUTION_SECRET: process.env.KAWA_ATTRIBUTION_SECRET,
   });
 
   if (!parsed.success) {

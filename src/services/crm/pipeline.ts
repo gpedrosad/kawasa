@@ -1,6 +1,9 @@
 import {
+  buildPersonalLink,
   getPipelineStage,
   isPipelineStageId,
+  isStageAhead,
+  SUBSCRIPTION_VALUE,
   type PipelineStageId,
 } from "@/config/pipeline";
 import { logger } from "@/lib/logger";
@@ -17,7 +20,15 @@ export interface CrmConversationCard {
   lastMessageAt: string | null;
   lastMessageText: string | null;
   hasAdTouch: boolean;
+  /** Link /empezar?wa= de este contacto, para mandarle por WhatsApp. */
+  personalLink: string | null;
 }
+
+type ContactJoin = {
+  phone_number: string;
+  profile_name: string | null;
+  wa_ref: string | null;
+};
 
 type ConversationListRow = {
   id: string;
@@ -25,10 +36,7 @@ type ConversationListRow = {
   status: string;
   contact_id: string;
   last_message_at: string | null;
-  contacts:
-    | { phone_number: string; profile_name: string | null }
-    | { phone_number: string; profile_name: string | null }[]
-    | null;
+  contacts: ContactJoin | ContactJoin[] | null;
 };
 
 export async function listCrmConversations(): Promise<CrmConversationCard[]> {
@@ -45,7 +53,8 @@ export async function listCrmConversations(): Promise<CrmConversationCard[]> {
       last_message_at,
       contacts (
         phone_number,
-        profile_name
+        profile_name,
+        wa_ref
       )
     `,
     )
@@ -86,6 +95,7 @@ export async function listCrmConversations(): Promise<CrmConversationCard[]> {
       lastMessageAt: row.last_message_at,
       lastMessageText: null,
       hasAdTouch: touchSet.has(row.id),
+      personalLink: contact?.wa_ref ? buildPersonalLink(contact.wa_ref) : null,
     };
   });
 }
@@ -97,6 +107,7 @@ export async function moveConversationStage(input: {
   conversation: CrmConversationCard;
   conversionRecorded: boolean;
   conversionEvent: string | null;
+  conversionStatus: string | null;
 }> {
   const stageConfig = getPipelineStage(input.stage);
   const db = getSupabaseAdmin();
@@ -114,7 +125,8 @@ export async function moveConversationStage(input: {
       last_message_at,
       contacts (
         phone_number,
-        profile_name
+        profile_name,
+        wa_ref
       )
     `,
     )
@@ -127,18 +139,24 @@ export async function moveConversationStage(input: {
   const row = updated as unknown as ConversationListRow;
 
   let conversionRecorded = false;
+  let conversionStatus: string | null = null;
   if (stageConfig.conversionEvent) {
-    await recordConversion({
+    const isPurchase = stageConfig.conversionEvent === "Purchase";
+    const conversion = await recordConversion({
       eventName: stageConfig.conversionEvent,
       conversationId: row.id,
       contactId: row.contact_id,
-      eventId: `${row.id}:${stageConfig.conversionEvent}`,
+      // Por contacto: el mismo evento automático y el del kanban no se duplican.
+      eventId: `${row.contact_id}:${stageConfig.conversionEvent}`,
+      value: isPurchase ? SUBSCRIPTION_VALUE.value : undefined,
+      currency: isPurchase ? SUBSCRIPTION_VALUE.currency : undefined,
       customData: {
         pipeline_stage: input.stage,
         source: "crm_kanban",
       },
     });
     conversionRecorded = true;
+    conversionStatus = conversion.status;
   }
 
   logger.info("Conversación movida en funnel", {
@@ -161,8 +179,51 @@ export async function moveConversationStage(input: {
       lastMessageAt: row.last_message_at,
       lastMessageText: null,
       hasAdTouch: false,
+      personalLink: contact?.wa_ref ? buildPersonalLink(contact.wa_ref) : null,
     },
     conversionRecorded,
     conversionEvent: stageConfig.conversionEvent,
+    conversionStatus,
   };
+}
+
+/**
+ * Avanza la conversación a `stage` si está antes en el embudo (eventos automáticos).
+ * No registra conversiones: quien llama ya la registró.
+ */
+export async function advanceConversationStage(input: {
+  conversationId: string;
+  stage: PipelineStageId;
+}): Promise<boolean> {
+  const db = getSupabaseAdmin();
+  const { data, error } = await db
+    .from("conversations")
+    .select("stage")
+    .eq("id", input.conversationId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const current = data && isPipelineStageId(data.stage) ? data.stage : "nuevo";
+  if (!data || !isStageAhead(current, input.stage)) {
+    return false;
+  }
+
+  const { error: updateError } = await db
+    .from("conversations")
+    .update({ stage: input.stage })
+    .eq("id", input.conversationId);
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  logger.info("Conversación avanzada sola en el funnel", {
+    conversationId: input.conversationId,
+    from: current,
+    to: input.stage,
+  });
+  return true;
 }

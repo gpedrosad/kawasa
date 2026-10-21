@@ -12,6 +12,13 @@ type StageMeta = {
   description: string;
 };
 
+const CONVERSION_STATUS_LABEL: Record<string, string> = {
+  sent: "enviada a Meta",
+  pending: "guardada, sale cuando Meta esté configurado",
+  skipped: "guardada, no vino de un anuncio",
+  failed: "falló el envío, se reintenta mañana",
+};
+
 export function CrmKanban({
   initialConversations,
   stages,
@@ -25,6 +32,15 @@ export function CrmKanban({
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  async function copyPersonalLink(link: string) {
+    try {
+      await navigator.clipboard.writeText(link);
+      setToast("Link personal copiado");
+    } catch {
+      setError("No se pudo copiar el link");
+    }
+  }
 
   async function moveToStage(conversationId: string, stage: PipelineStageId) {
     const previous = conversations;
@@ -55,6 +71,7 @@ export function CrmKanban({
           data?: {
             conversionRecorded: boolean;
             conversionEvent: string | null;
+            conversionStatus: string | null;
           };
           error?: { message?: string };
         };
@@ -65,7 +82,7 @@ export function CrmKanban({
 
         if (payload.data?.conversionRecorded && payload.data.conversionEvent) {
           setToast(
-            `Conversión ${payload.data.conversionEvent} registrada (pending CAPI)`,
+            `${payload.data.conversionEvent}: ${CONVERSION_STATUS_LABEL[payload.data.conversionStatus ?? ""] ?? "registrada"}`,
           );
         } else {
           setToast(`Movido a ${stages.find((s) => s.id === stage)?.label}`);
@@ -190,6 +207,15 @@ export function CrmKanban({
                       <p className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900">
                         CTWA / ad
                       </p>
+                    )}
+                    {card.personalLink && (
+                      <button
+                        type="button"
+                        className="mt-2 block text-[11px] font-medium text-teal-800 underline decoration-teal-300"
+                        onClick={() => void copyPersonalLink(card.personalLink!)}
+                      >
+                        Copiar link para mandarle
+                      </button>
                     )}
                   </li>
                 ))}

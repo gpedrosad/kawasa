@@ -16,6 +16,7 @@ export interface Database {
           wa_id: string | null;
           profile_name: string | null;
           metadata: Json;
+          wa_ref: string;
           created_at: string;
           updated_at: string;
         };
@@ -25,6 +26,7 @@ export interface Database {
           wa_id?: string | null;
           profile_name?: string | null;
           metadata?: Json;
+          wa_ref?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -34,6 +36,7 @@ export interface Database {
           wa_id?: string | null;
           profile_name?: string | null;
           metadata?: Json;
+          wa_ref?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -242,6 +245,7 @@ export interface Database {
           meta_response: Json | null;
           error_message: string | null;
           sent_at: string | null;
+          attempts: number;
           created_at: string;
           updated_at: string;
         };
@@ -262,6 +266,7 @@ export interface Database {
           meta_response?: Json | null;
           error_message?: string | null;
           sent_at?: string | null;
+          attempts?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -282,6 +287,7 @@ export interface Database {
           meta_response?: Json | null;
           error_message?: string | null;
           sent_at?: string | null;
+          attempts?: number;
           created_at?: string;
           updated_at?: string;
         };

@@ -1,11 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
 import { logger } from "@/lib/logger";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { sendConversion } from "@/services/attribution/meta-capi";
 import type {
   RecordConversionInput,
   StoredConversion,
 } from "@/types/attribution";
 import type { Json } from "@/types/database";
+
+const CONVERSION_COLUMNS =
+  "id, event_name, event_id, status, conversation_id, ad_touch_id, custom_data";
 
 function defaultEventId(input: RecordConversionInput): string {
   const day = (input.eventTime ? new Date(input.eventTime) : new Date())
@@ -21,8 +25,42 @@ function defaultEventId(input: RecordConversionInput): string {
 }
 
 /**
- * Registra una conversión en KaWa (status=pending).
- * No envía a Meta CAPI todavía — deja el evento listo para pulir targeting luego.
+ * Ad touch de la conversación o, si no hay, el último del contacto: Kapso abre
+ * una conversación nueva tras 60 min sin mensajes y el anuncio queda en la primera.
+ */
+async function findAdTouchId(
+  input: RecordConversionInput,
+): Promise<string | null> {
+  const db = getSupabaseAdmin();
+
+  if (input.conversationId) {
+    const { data } = await db
+      .from("ad_touches")
+      .select("id")
+      .eq("conversation_id", input.conversationId)
+      .maybeSingle();
+    if (data?.id) {
+      return data.id;
+    }
+  }
+
+  if (input.contactId) {
+    const { data } = await db
+      .from("ad_touches")
+      .select("id")
+      .eq("contact_id", input.contactId)
+      .order("touched_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
+  }
+
+  return null;
+}
+
+/**
+ * Registra una conversión en KaWa y la manda a Meta CAPI.
+ * Idempotente por event_id: si ya existe, no la pisa ni la reenvía.
  */
 export async function recordConversion(
   input: RecordConversionInput,
@@ -31,18 +69,10 @@ export async function recordConversion(
   const eventTime = input.eventTime
     ? new Date(input.eventTime).toISOString()
     : new Date().toISOString();
+  const adTouchId = await findAdTouchId(input);
+  const db = getSupabaseAdmin();
 
-  let adTouchId: string | null = null;
-  if (input.conversationId) {
-    const { data: touch } = await getSupabaseAdmin()
-      .from("ad_touches")
-      .select("id")
-      .eq("conversation_id", input.conversationId)
-      .maybeSingle();
-    adTouchId = touch?.id ?? null;
-  }
-
-  const { data, error } = await getSupabaseAdmin()
+  const { data: inserted, error } = await db
     .from("conversions")
     .upsert(
       {
@@ -61,28 +91,58 @@ export async function recordConversion(
           external_id: input.contactId ?? randomUUID(),
         },
       },
-      { onConflict: "event_id" },
+      { onConflict: "event_id", ignoreDuplicates: true },
     )
-    .select("id, event_name, event_id, status, conversation_id, ad_touch_id, custom_data")
-    .single();
+    .select(CONVERSION_COLUMNS);
 
   if (error) {
     throw error;
   }
 
-  logger.info("Conversión registrada (pending CAPI)", {
+  const created = Boolean(inserted?.length);
+  let data = inserted?.[0];
+
+  if (!data) {
+    const { data: existing, error: existingError } = await db
+      .from("conversions")
+      .select(CONVERSION_COLUMNS)
+      .eq("event_id", eventId)
+      .single();
+    if (existingError) {
+      throw existingError;
+    }
+    data = existing;
+  }
+
+  let status = data.status as StoredConversion["status"];
+  if (created) {
+    try {
+      status = await sendConversion(data.id);
+    } catch (sendError) {
+      // Queda pending: el cron diario la reintenta.
+      logger.error("Falló el envío a Meta CAPI", {
+        conversionId: data.id,
+        error: sendError instanceof Error ? sendError.message : String(sendError),
+      });
+    }
+  }
+
+  logger.info("Conversión registrada", {
     conversionId: data.id,
     eventName: data.event_name,
     eventId: data.event_id,
+    created,
+    status,
     conversationId: data.conversation_id,
     adTouchId: data.ad_touch_id,
   });
 
   return {
     id: data.id,
+    created,
     eventName: data.event_name,
     eventId: data.event_id,
-    status: data.status as StoredConversion["status"],
+    status,
     conversationId: data.conversation_id,
     adTouchId: data.ad_touch_id,
     customData: data.custom_data,

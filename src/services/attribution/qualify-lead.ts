@@ -98,6 +98,15 @@ export async function maybeQualifyLead(input: {
     eventId: `${input.contactId}:QualifiedLead`,
     customData: { source: "auto_profession", matched: stem },
   });
+  // LeadSubmitted es el evento que usa la campaña de leads por WhatsApp para optimizar
+  // (objetivo Clientes potenciales, EXP-003). Mismo momento y una vez por contacto.
+  await recordConversion({
+    eventName: "LeadSubmitted",
+    contactId: input.contactId,
+    conversationId: input.conversationId,
+    eventId: `${input.contactId}:LeadSubmitted`,
+    customData: { source: "auto_profession", matched: stem },
+  });
 
   if (conversion.created) {
     await advanceConversationStage({

@@ -14,7 +14,7 @@ Para qué sirve: que Meta sepa qué personas que escribieron desde el anuncio va
 | # | Evento Meta | Cuándo se marca (solo) | Dónde |
 |---|---|---|---|
 | 1 | (conversación) | Escribe desde el anuncio | Meta lo cuenta solo |
-| 2 | `QualifiedLead` | Vino de un anuncio (≤7 días) y en un mensaje nombra una profesión | `src/services/attribution/qualify-lead.ts` |
+| 2 | `QualifiedLead` + `LeadSubmitted` | Vino de un anuncio (≤7 días) y en un mensaje nombra una profesión. `LeadSubmitted` (desde 2026-10-22) es el que usa la campaña de leads por WhatsApp para optimizar | `src/services/attribution/qualify-lead.ts` |
 | 3 | `InitiateCheckout` | Abre `/suscribirse` desde su link personal `agendapp.com.ar/empezar?wa=<código>`, o manda el formulario de `/suscribirse` con el mismo WhatsApp desde el que escribió | AgendApp → `POST /api/attribution/events` (`ref` o `phone`) |
 | 4 | `Purchase` (ARS 18.000) | Paga la primera cuota (link personal o mismo WhatsApp) | Webhook de pagos de AgendApp → `POST /api/attribution/events` (`ref` o `phone`) |
 
@@ -22,6 +22,9 @@ Para qué sirve: que Meta sepa qué personas que escribieron desde el anuncio va
 - Arrastrar en el kanban a **Lead** o **Ganado** manda el mismo evento. `event_id = {contactId}:{Evento}`, así que el automático y el manual no se duplican (Meta no deduplica estos eventos).
 - Sin `ctwa_clid` (no vino de un anuncio) la conversión queda `skipped`.
 - La regla de profesión suma «depila» y «constelacion» desde 2026-10-22 (contra las 15 charlas de octubre habría marcado 10 de 12 sin ellas). Aprendizajes de esas charlas: `nuevonext/MARKETING/whatsapp/aprendizajes-conversion.md`.
+
+- 2026-10-22: se mandaron a mano `QualifiedLead` + `LeadSubmitted` de 4 leads del 17 al 19-oct (dentro de los 7 días que acepta Meta), con la hora real del mensaje (`custom_data.source = backfill_2026-10-22`).
+- El dataset `1147783157674161` está atado a la WABA. Para usarlo en un conjunto de anuncios a WhatsApp va en `promoted_object` (`pixel_id` = dataset, `custom_event_type` = `LEAD`); no aparece en `adspixels` de la cuenta publicitaria y no hizo falta compartirlo.
 
 ## Link personal
 

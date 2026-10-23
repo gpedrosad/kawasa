@@ -30,6 +30,7 @@ const PROFESSION_STEMS = [
   "cosmetolog",
   "lash",
   "pestan",
+  "depila",
   "manicur",
   "peluquer",
   "barber",
@@ -38,6 +39,7 @@ const PROFESSION_STEMS = [
   "entrenador",
   "yoga",
   "pilates",
+  "constelacion",
   "consultorio",
   "clinica",
 ];

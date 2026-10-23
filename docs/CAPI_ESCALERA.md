@@ -1,6 +1,6 @@
 # Escalera de conversiones → Meta (WhatsApp)
 
-**Estado (2026-10-21):** código listo, **sin commitear ni deployar**.
+**Estado (2026-10-22):** deployado y mandando (`Purchase` e `InitiateCheckout` del 2026-10-21 llegaron a Meta). Desde 2026-10-22 AgendApp también reconoce a la persona por el **teléfono** de `/suscribirse` cuando llega por el link genérico `/empezar` (el que manda el agente de Kapso).
 
 - Hecho: dataset `1147783157674161` creado en la WABA `1196537218554691`; migración aplicada en KaWa (129 contactos con `wa_ref`); en Vercel `kawasa` están cargadas `META_CAPI_ACCESS_TOKEN`, `META_DATASET_ID`, `KAWA_ATTRIBUTION_SECRET` y `CRON_SECRET`, y en `appoint` `KAWA_ATTRIBUTION_SECRET` (las claves también están en el Keychain: `codex-kawa-attribution-secret`, `codex-kawa-cron-secret`).
 - Un `test_event_code` que no coincide con una sesión abierta de «Probar eventos» hace que Meta procese el evento **como real**. Por eso se borró `META_TEST_EVENT_CODE=TEST_KAWA` de `kawasa` (2026-10-21).
@@ -15,19 +15,19 @@ Para qué sirve: que Meta sepa qué personas que escribieron desde el anuncio va
 |---|---|---|---|
 | 1 | (conversación) | Escribe desde el anuncio | Meta lo cuenta solo |
 | 2 | `QualifiedLead` | Vino de un anuncio (≤7 días) y en un mensaje nombra una profesión | `src/services/attribution/qualify-lead.ts` |
-| 3 | `InitiateCheckout` | Abre `/suscribirse` desde su link personal `agendapp.com.ar/empezar?wa=<código>` | AgendApp → `POST /api/attribution/events` |
-| 4 | `Purchase` (ARS 18.000) | Paga la primera cuota con ese link | Webhook de pagos de AgendApp → `POST /api/attribution/events` |
+| 3 | `InitiateCheckout` | Abre `/suscribirse` desde su link personal `agendapp.com.ar/empezar?wa=<código>`, o manda el formulario de `/suscribirse` con el mismo WhatsApp desde el que escribió | AgendApp → `POST /api/attribution/events` (`ref` o `phone`) |
+| 4 | `Purchase` (ARS 18.000) | Paga la primera cuota (link personal o mismo WhatsApp) | Webhook de pagos de AgendApp → `POST /api/attribution/events` (`ref` o `phone`) |
 
 - Meta **no acepta** `Lead` ni `Subscribe` en business_messaging. Las filas viejas con esos nombres salen como `QualifiedLead` / `Purchase` (`toMetaEventName`).
 - Arrastrar en el kanban a **Lead** o **Ganado** manda el mismo evento. `event_id = {contactId}:{Evento}`, así que el automático y el manual no se duplican (Meta no deduplica estos eventos).
 - Sin `ctwa_clid` (no vino de un anuncio) la conversión queda `skipped`.
-- Contra las 15 charlas del anuncio de octubre, la regla de profesión habría marcado 10.
+- La regla de profesión suma «depila» y «constelacion» desde 2026-10-22 (contra las 15 charlas de octubre habría marcado 10 de 12 sin ellas). Aprendizajes de esas charlas: `nuevonext/MARKETING/whatsapp/aprendizajes-conversion.md`.
 
 ## Link personal
 
 Cada contacto tiene `contacts.wa_ref` (8 hex, aleatorio, sin PII). En `/crm` cada tarjeta tiene «Copiar link para mandarle». AgendApp guarda el código en cookie (`agendapp_wa`, 30 días) y lo lleva a `mp_checkout_intents.utms.wa`.
 
-Si se manda el link genérico `/empezar` (sin código), los escalones 3 y 4 no se pueden atribuir a la persona.
+Con el link genérico `/empezar` (sin código) los escalones 3 y 4 se atribuyen por teléfono: el WhatsApp del formulario se compara con `contacts.phone_number` (`argentinePhoneCandidates` en `src/utils/phone.ts`: acepta +54 9…, 011 15…, 10 dígitos) y solo cuenta si ese contacto escribió desde un anuncio. Si la persona pone otro número, no se atribuye.
 
 ## Piezas
 
@@ -36,7 +36,8 @@ Si se manda el link genérico `/empezar` (sin código), los escalones 3 y 4 no s
 | Envío a Meta + reintentos | `src/services/attribution/meta-capi.ts` |
 | Registrar (idempotente) y mandar | `src/services/attribution/record-conversion.ts` |
 | Escalón 2 automático | `src/services/attribution/qualify-lead.ts` (desde `handlers/incoming-message.ts`) |
-| Endpoint para AgendApp | `src/app/api/attribution/events/route.ts` (Bearer `KAWA_ATTRIBUTION_SECRET`) |
+| Endpoint para AgendApp | `src/app/api/attribution/events/route.ts` (Bearer `KAWA_ATTRIBUTION_SECRET`; `ref` o `phone`) |
+| Quién contesta en WhatsApp | `src/app/api/kapso/route-inbound/route.ts` + `src/services/routing/route-inbound.ts` (Bearer `KAPSO_ROUTER_SECRET`). Lo consulta la Kapso Function del agente de ventas: agente si escribió desde un anuncio (desde `AGENT_LIVE_SINCE`, ≤14 días), silencio si la charla está en handoff (≤7 días), en ganado/perdido o no viene de un anuncio |
 | Reintento diario | `src/app/api/attribution/flush/route.ts` + `vercel.json` (12:00 UTC, Bearer `CRON_SECRET`) |
 | Migración | `supabase/migrations/20261021211643_capi_business_messaging.sql` |
 | AgendApp | `src/lib/waRef.ts`, `src/lib/kawaAttribution.ts`, `src/app/api/whatsapp-link/open/route.ts`, webhook `paySuscribe` |

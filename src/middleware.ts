@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /**
  * Pide clave (Basic Auth) para todo salvo el webhook de Kapso (ya firmado
- * con HMAC), la atribución que manda AgendApp (Bearer propio) y los audios
- * públicos que Meta descarga.
+ * con HMAC), la atribución que manda AgendApp y el router que consulta la
+ * Kapso Function (Bearer propio cada uno) y los audios públicos que Meta descarga.
  * La clave va en CRM_PASSWORD (el repo es público: nunca en el código).
  * Sin CRM_PASSWORD no deja entrar a nadie.
  */
@@ -31,6 +31,6 @@ export function middleware(request: NextRequest): NextResponse {
 
 export const config = {
   matcher: [
-    "/((?!api/webhooks/|api/attribution/|sounds/|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/webhooks/|api/attribution/|api/kapso/|sounds/|_next/static|_next/image|favicon.ico).*)",
   ],
 };

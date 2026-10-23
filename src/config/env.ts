@@ -34,6 +34,8 @@ const envSchema = z.object({
   META_TEST_EVENT_CODE: z.string().min(1).optional(),
   /** Clave compartida con AgendApp para POST /api/attribution/events. */
   KAWA_ATTRIBUTION_SECRET: z.string().min(16).optional(),
+  /** Clave de la Kapso Function que pregunta POST /api/kapso/route-inbound. */
+  KAPSO_ROUTER_SECRET: z.string().min(16).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -70,6 +72,7 @@ export function getEnv(): Env {
     META_WABA_ID: process.env.META_WABA_ID,
     META_TEST_EVENT_CODE: process.env.META_TEST_EVENT_CODE,
     KAWA_ATTRIBUTION_SECRET: process.env.KAWA_ATTRIBUTION_SECRET,
+    KAPSO_ROUTER_SECRET: process.env.KAPSO_ROUTER_SECRET,
   });
 
   if (!parsed.success) {

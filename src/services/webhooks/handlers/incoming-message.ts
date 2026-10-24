@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { maybeQualifyLead } from "@/services/attribution/qualify-lead";
+import { maybeMarkReplyLead, maybeQualifyLead } from "@/services/attribution/qualify-lead";
 import {
   isSuppTrigger,
   replySuppWithVoiceNote,
@@ -50,6 +50,19 @@ export async function handleIncomingMessage(
   }
 
   if (persisted) {
+    try {
+      await maybeMarkReplyLead({
+        contactId: persisted.contactId,
+        conversationId: persisted.conversationId,
+        messageType: message.type,
+      });
+    } catch (error) {
+      logger.error("Falló el LeadSubmitted por respuesta", {
+        messageId: message.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     try {
       await maybeQualifyLead({
         contactId: persisted.contactId,

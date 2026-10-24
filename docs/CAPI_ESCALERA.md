@@ -14,13 +14,16 @@ Para qué sirve: que Meta sepa qué personas que escribieron desde el anuncio va
 | # | Evento Meta | Cuándo se marca (solo) | Dónde |
 |---|---|---|---|
 | 1 | (conversación) | Escribe desde el anuncio | Meta lo cuenta solo |
-| 2 | `QualifiedLead` + `LeadSubmitted` | Vino de un anuncio (≤7 días) y en un mensaje nombra una profesión. `LeadSubmitted` (desde 2026-10-22) es el que usa la campaña de leads por WhatsApp para optimizar | `src/services/attribution/qualify-lead.ts` |
+| 2a | `LeadSubmitted` | Vino de un anuncio (≤7 días) y **contesta un mensaje nuestro** (cualquier mensaje salvo reacciones). Es el que usa la campaña de leads por WhatsApp (EXP-003) para optimizar. Desde 2026-10-24 (antes salía junto con `QualifiedLead`) | `maybeMarkReplyLead` en `src/services/attribution/qualify-lead.ts` |
+| 2b | `QualifiedLead` | Vino de un anuncio (≤7 días) y en un mensaje nombra una profesión. Si la nombra antes de que le escribamos, también sale `LeadSubmitted` (mismo `event_id`, no se duplica) | `maybeQualifyLead` en `src/services/attribution/qualify-lead.ts` |
 | 3 | `InitiateCheckout` | Abre `/suscribirse` desde su link personal `agendapp.com.ar/empezar?wa=<código>`, o manda el formulario de `/suscribirse` con el mismo WhatsApp desde el que escribió | AgendApp → `POST /api/attribution/events` (`ref` o `phone`) |
 | 4 | `Purchase` (ARS 18.000) | Paga la primera cuota (link personal o mismo WhatsApp) | Webhook de pagos de AgendApp → `POST /api/attribution/events` (`ref` o `phone`) |
 
 - Meta **no acepta** `Lead` ni `Subscribe` en business_messaging. Las filas viejas con esos nombres salen como `QualifiedLead` / `Purchase` (`toMetaEventName`).
 - Arrastrar en el kanban a **Lead** o **Ganado** manda el mismo evento. `event_id = {contactId}:{Evento}`, así que el automático y el manual no se duplican (Meta no deduplica estos eventos).
 - Sin `ctwa_clid` (no vino de un anuncio) la conversión queda `skipped`.
+- **Por qué `LeadSubmitted` al contestar (2026-10-24):** del 22 al 24-oct EXP-003 no recibió ningún `LeadSubmitted` (0 de 6 leads contestaron el primer mensaje, así que nadie llegó a decir su profesión) y Meta optimizaba sin señal. El cuello de botella es que contesten. Aun así, con USD 4/día (~3–4 conversaciones por día) no llega a los ~50 eventos semanales que pide Meta para salir de aprendizaje.
+- Formas cortas de profesión desde 2026-10-24 («kine», «nutri», «psico», «fono», «fisio», «cejas», «nails»…): cuentan solo al principio de una palabra (`PROFESSION_WORD_STARTS`), para que «fono» no matchee «teléfono».
 - La regla de profesión suma «depila» y «constelacion» desde 2026-10-22 (contra las 15 charlas de octubre habría marcado 10 de 12 sin ellas). Aprendizajes de esas charlas: `nuevonext/MARKETING/whatsapp/aprendizajes-conversion.md`.
 
 - 2026-10-22: se mandaron a mano `QualifiedLead` + `LeadSubmitted` de 4 leads del 17 al 19-oct (dentro de los 7 días que acepta Meta), con la hora real del mensaje (`custom_data.source = backfill_2026-10-22`).
@@ -38,7 +41,7 @@ Con el link genérico `/empezar` (sin código) los escalones 3 y 4 se atribuyen 
 |---|---|
 | Envío a Meta + reintentos | `src/services/attribution/meta-capi.ts` |
 | Registrar (idempotente) y mandar | `src/services/attribution/record-conversion.ts` |
-| Escalón 2 automático | `src/services/attribution/qualify-lead.ts` (desde `handlers/incoming-message.ts`) |
+| Escalón 2 automático | `src/services/attribution/qualify-lead.ts`: `maybeMarkReplyLead` y `maybeQualifyLead` (desde `handlers/incoming-message.ts`) |
 | Endpoint para AgendApp | `src/app/api/attribution/events/route.ts` (Bearer `KAWA_ATTRIBUTION_SECRET`; `ref` o `phone`) |
 | Quién contesta en WhatsApp | `src/app/api/kapso/route-inbound/route.ts` + `src/services/routing/route-inbound.ts` (Bearer `KAPSO_ROUTER_SECRET`). Lo consulta la Kapso Function del agente de ventas: agente si escribió desde un anuncio (desde `AGENT_LIVE_SINCE`, ≤14 días), silencio si la charla está en handoff (≤7 días), en ganado/perdido o no viene de un anuncio; `saludo` si todavía no le escribimos: Kapso manda el primer mensaje fijo del A/B (`opening-variants.ts`, tabla `opening_messages`, resultados en la vista `opening_message_summary`) |
 | Reintento diario | `src/app/api/attribution/flush/route.ts` + `vercel.json` (12:00 UTC, Bearer `CRON_SECRET`) |

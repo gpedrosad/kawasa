@@ -40,7 +40,7 @@ Con el link genérico `/empezar` (sin código) los escalones 3 y 4 se atribuyen 
 | Registrar (idempotente) y mandar | `src/services/attribution/record-conversion.ts` |
 | Escalón 2 automático | `src/services/attribution/qualify-lead.ts` (desde `handlers/incoming-message.ts`) |
 | Endpoint para AgendApp | `src/app/api/attribution/events/route.ts` (Bearer `KAWA_ATTRIBUTION_SECRET`; `ref` o `phone`) |
-| Quién contesta en WhatsApp | `src/app/api/kapso/route-inbound/route.ts` + `src/services/routing/route-inbound.ts` (Bearer `KAPSO_ROUTER_SECRET`). Lo consulta la Kapso Function del agente de ventas: agente si escribió desde un anuncio (desde `AGENT_LIVE_SINCE`, ≤14 días), silencio si la charla está en handoff (≤7 días), en ganado/perdido o no viene de un anuncio |
+| Quién contesta en WhatsApp | `src/app/api/kapso/route-inbound/route.ts` + `src/services/routing/route-inbound.ts` (Bearer `KAPSO_ROUTER_SECRET`). Lo consulta la Kapso Function del agente de ventas: agente si escribió desde un anuncio (desde `AGENT_LIVE_SINCE`, ≤14 días), silencio si la charla está en handoff (≤7 días), en ganado/perdido o no viene de un anuncio; `saludo` si todavía no le escribimos: Kapso manda el primer mensaje fijo del A/B (`opening-variants.ts`, tabla `opening_messages`, resultados en la vista `opening_message_summary`) |
 | Reintento diario | `src/app/api/attribution/flush/route.ts` + `vercel.json` (12:00 UTC, Bearer `CRON_SECRET`) |
 | Migración | `supabase/migrations/20261021211643_capi_business_messaging.sql` |
 | AgendApp | `src/lib/waRef.ts`, `src/lib/kawaAttribution.ts`, `src/app/api/whatsapp-link/open/route.ts`, webhook `paySuscribe` |

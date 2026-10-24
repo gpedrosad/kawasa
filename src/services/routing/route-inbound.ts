@@ -6,13 +6,15 @@ import { argentinePhoneCandidates } from "@/utils/phone";
  * Quién contesta un mensaje entrante al número de ventas: el agente de IA de Kapso
  * («Ventas desde anuncio (agente)») o nadie (lo ve Gonzalo). La Kapso Function del
  * paso «¿Contesta el agente?» llama a POST /api/kapso/route-inbound con esto.
+ * Si todavía no le escribimos nada, la ruta es «saludo»: Kapso manda el primer mensaje
+ * fijo del A/B (opening-variants.ts) y después sigue el agente.
  *
  * Contesta el agente solo si la persona escribió desde un anuncio hace poco y la charla
  * no la tomó Gonzalo. Clientes, pacientes y soporte comparten el número: ante la duda,
  * silencio.
  */
 
-export type InboundRoute = "agente" | "silencio";
+export type InboundRoute = "agente" | "saludo" | "silencio";
 
 /** Solo leads de anuncios desde que se prendió el agente: los anteriores los sigue Gonzalo. */
 export const AGENT_LIVE_SINCE = "2026-10-22T00:00:00-03:00";
@@ -34,6 +36,10 @@ export type RouteFacts = {
   stage: string | null;
   lastHandoffAt: string | null;
   text: string | null;
+  /** Ya le mandamos algo (mensaje guardado en KaWa o primer mensaje del A/B asignado). */
+  alreadyAnswered: boolean;
+  /** Teléfono como está en contacts.phone_number (54 + 10 dígitos). */
+  phoneNumber: string | null;
 };
 
 export function decideRoute(
@@ -56,11 +62,15 @@ export function decideRoute(
     now.getTime() - touchedAt < AD_WINDOW_DAYS * DAY_MS;
 
   if (recentTouch) {
-    return { route: "agente", reason: "escribió desde un anuncio" };
+    return facts.alreadyAnswered
+      ? { route: "agente", reason: "escribió desde un anuncio" }
+      : { route: "saludo", reason: "escribió desde un anuncio, primer mensaje" };
   }
   // Primer mensaje de alguien nuevo: el anuncio todavía puede no estar guardado.
   if (preloaded && !facts.lastAdTouchAt) {
-    return { route: "agente", reason: "mensaje precargado del anuncio" };
+    return facts.alreadyAnswered
+      ? { route: "agente", reason: "mensaje precargado del anuncio" }
+      : { route: "saludo", reason: "mensaje precargado del anuncio, primer mensaje" };
   }
   return { route: "silencio", reason: facts.contactFound ? "no viene de un anuncio reciente" : "contacto desconocido" };
 }
@@ -103,26 +113,32 @@ export async function loadRouteFacts(input: {
     stage: null,
     lastHandoffAt: null,
     text: input.text ?? null,
+    alreadyAnswered: false,
+    phoneNumber: candidates[0] ?? null,
   };
   if (candidates.length === 0) {
     return empty;
   }
 
-  const { data: contact, error } = await db
-    .from("contacts")
-    .select("id")
-    .in("phone_number", candidates)
-    .limit(1)
-    .maybeSingle();
+  const [{ data: contact, error }, { data: opening, error: openingError }] = await Promise.all([
+    db.from("contacts").select("id, phone_number").in("phone_number", candidates).limit(1).maybeSingle(),
+    db.from("opening_messages").select("id").in("phone_number", candidates).limit(1).maybeSingle(),
+  ]);
   if (error) {
     throw error;
   }
+  if (openingError) {
+    throw openingError;
+  }
   if (!contact) {
-    return empty;
+    return { ...empty, alreadyAnswered: Boolean(opening) };
   }
 
-  const [{ data: touch, error: touchError }, { data: conversations, error: conversationsError }] =
-    await Promise.all([
+  const [
+    { data: touch, error: touchError },
+    { data: conversations, error: conversationsError },
+    { data: outbound, error: outboundError },
+  ] = await Promise.all([
       db
         .from("ad_touches")
         .select("touched_at")
@@ -138,12 +154,22 @@ export async function loadRouteFacts(input: {
         .gte("last_message_at", new Date(Date.now() - HANDOFF_QUIET_DAYS * DAY_MS).toISOString())
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .limit(5),
+      db
+        .from("messages")
+        .select("id")
+        .eq("contact_id", contact.id)
+        .eq("direction", "outbound")
+        .limit(1)
+        .maybeSingle(),
     ]);
   if (touchError) {
     throw touchError;
   }
   if (conversationsError) {
     throw conversationsError;
+  }
+  if (outboundError) {
+    throw outboundError;
   }
 
   return {
@@ -156,5 +182,7 @@ export async function loadRouteFacts(input: {
       null,
     lastHandoffAt: await findLastHandoffAt((conversations ?? []).map((row) => row.id)),
     text: input.text ?? null,
+    alreadyAnswered: Boolean(opening || outbound),
+    phoneNumber: contact.phone_number,
   };
 }

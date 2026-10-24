@@ -293,6 +293,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      opening_messages: {
+        Row: {
+          id: string;
+          phone_number: string;
+          variant: string;
+          message: string;
+          assigned_at: string;
+        };
+        Insert: {
+          id?: string;
+          phone_number: string;
+          variant: string;
+          message: string;
+          assigned_at?: string;
+        };
+        Update: {
+          id?: string;
+          phone_number?: string;
+          variant?: string;
+          message?: string;
+          assigned_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

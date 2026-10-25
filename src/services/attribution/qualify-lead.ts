@@ -109,51 +109,6 @@ async function findRecentAdTouch(contactId: string): Promise<{ id: string } | nu
 }
 
 /**
- * LeadSubmitted (el evento que optimiza la campaña de leads por WhatsApp, EXP-003) cuando
- * quien vino de un anuncio contesta un mensaje nuestro. El cuello de botella es que
- * contesten (2026-10-24: 0 de 6 contestaron el primer mensaje), así que Meta busca gente
- * que contesta. Una vez por contacto; las reacciones no cuentan.
- */
-export async function maybeMarkReplyLead(input: {
-  contactId: string;
-  conversationId: string;
-  messageType: string | null | undefined;
-}): Promise<boolean> {
-  if (input.messageType === "reaction") {
-    return false;
-  }
-
-  const { data: outbound, error } = await getSupabaseAdmin()
-    .from("messages")
-    .select("id")
-    .eq("contact_id", input.contactId)
-    .eq("direction", "outbound")
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    throw error;
-  }
-  if (!outbound || !(await findRecentAdTouch(input.contactId))) {
-    return false;
-  }
-
-  const conversion = await recordConversion({
-    eventName: "LeadSubmitted",
-    contactId: input.contactId,
-    conversationId: input.conversationId,
-    eventId: `${input.contactId}:LeadSubmitted`,
-    customData: { source: "auto_reply" },
-  });
-  if (conversion.created) {
-    logger.info("Lead que contestó: LeadSubmitted", {
-      contactId: input.contactId,
-      status: conversion.status,
-    });
-  }
-  return conversion.created;
-}
-
-/**
  * Escalón 2 de la escalera: quien vino de un anuncio y cuenta a qué se dedica
  * pasa a QualifiedLead (una vez por contacto) y su tarjeta avanza a «Lead».
  */
@@ -178,8 +133,8 @@ export async function maybeQualifyLead(input: {
     eventId: `${input.contactId}:QualifiedLead`,
     customData: { source: "auto_profession", matched: stem },
   });
-  // LeadSubmitted normalmente ya salió cuando contestó (maybeMarkReplyLead); si nombró la
-  // profesión antes de que le escribiéramos, sale acá. Mismo event_id: nunca se duplica.
+  // LeadSubmitted (el que optimiza EXP-003) sale solo acá: contestar no alcanza, porque un
+  // audio o un link de alguien que no atiende con turnos también es «contestar» (2026-10-25).
   await recordConversion({
     eventName: "LeadSubmitted",
     contactId: input.contactId,

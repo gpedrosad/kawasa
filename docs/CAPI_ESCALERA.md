@@ -14,7 +14,7 @@ Para qué sirve: que Meta sepa qué personas que escribieron desde el anuncio va
 | # | Evento Meta | Cuándo se marca (solo) | Dónde |
 |---|---|---|---|
 | 1 | (conversación) | Escribe desde el anuncio | Meta lo cuenta solo |
-| 2a | `LeadSubmitted` | Vino de un anuncio (≤7 días) y **contesta un mensaje nuestro** (cualquier mensaje salvo reacciones). Es el que usa la campaña de leads por WhatsApp (EXP-003) para optimizar. Desde 2026-10-24 (antes salía junto con `QualifiedLead`) | `maybeMarkReplyLead` en `src/services/attribution/qualify-lead.ts` |
+| 2a | `LeadSubmitted` | Vino de un anuncio (≤7 días) y **dice a qué se dedica** (misma regla que `QualifiedLead`). Es el que usa la campaña de leads por WhatsApp (EXP-003) para optimizar. Del 2026-10-24 al 2026-10-25 salía con cualquier respuesta y le mandó a Meta un audio con un link de Facebook como lead: se volvió atrás | `maybeQualifyLead` en `src/services/attribution/qualify-lead.ts` |
 | 2b | `QualifiedLead` | Vino de un anuncio (≤7 días) y en un mensaje nombra una profesión. Si la nombra antes de que le escribamos, también sale `LeadSubmitted` (mismo `event_id`, no se duplica) | `maybeQualifyLead` en `src/services/attribution/qualify-lead.ts` |
 | 3 | `InitiateCheckout` | Abre `/suscribirse` desde su link personal `agendapp.com.ar/empezar?wa=<código>`, o manda el formulario de `/suscribirse` con el mismo WhatsApp desde el que escribió | AgendApp → `POST /api/attribution/events` (`ref` o `phone`) |
 | 4 | `Purchase` (ARS 18.000) | Paga la primera cuota (link personal o mismo WhatsApp) | Webhook de pagos de AgendApp → `POST /api/attribution/events` (`ref` o `phone`) |
@@ -41,7 +41,7 @@ Con el link genérico `/empezar` (sin código) los escalones 3 y 4 se atribuyen 
 |---|---|
 | Envío a Meta + reintentos | `src/services/attribution/meta-capi.ts` |
 | Registrar (idempotente) y mandar | `src/services/attribution/record-conversion.ts` |
-| Escalón 2 automático | `src/services/attribution/qualify-lead.ts`: `maybeMarkReplyLead` y `maybeQualifyLead` (desde `handlers/incoming-message.ts`) |
+| Escalón 2 automático | `src/services/attribution/qualify-lead.ts`: `maybeQualifyLead` (desde `handlers/incoming-message.ts`) |
 | Endpoint para AgendApp | `src/app/api/attribution/events/route.ts` (Bearer `KAWA_ATTRIBUTION_SECRET`; `ref` o `phone`) |
 | Quién contesta en WhatsApp | `src/app/api/kapso/route-inbound/route.ts` + `src/services/routing/route-inbound.ts` (Bearer `KAPSO_ROUTER_SECRET`). Lo consulta la Kapso Function del agente de ventas: agente si escribió desde un anuncio (desde `AGENT_LIVE_SINCE`, ≤14 días), silencio si la charla está en handoff (≤7 días), en ganado/perdido o no viene de un anuncio; `saludo` si todavía no le escribimos: Kapso manda el primer mensaje fijo del A/B (`opening-variants.ts`, tabla `opening_messages`, resultados en la vista `opening_message_summary`) |
 | Reintento diario | `src/app/api/attribution/flush/route.ts` + `vercel.json` (12:00 UTC, Bearer `CRON_SECRET`) |

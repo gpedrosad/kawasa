@@ -16,12 +16,16 @@ export const OPENING_VARIANTS = {
     "es un link con tus horarios libres, tus pacientes o clientes reservan solos y les llegan recordatorios por whatsapp. vos a qué te dedicás? así te cuento con tu caso",
   // Como el saludo de Gonzalo de octubre (13 de 15 contestaron): primero pregunta.
   solo_pregunta: "hola! te explico con tu caso así es más fácil, vos a qué te dedicás?",
+  // El saludo de Gonzalo tal cual (oct: 12 de 14 contestaron; las dos de arriba, 0 de 12).
+  // Va solo al 100% desde 2026-10-25, junto con la campaña nueva (EXP-004).
+  saludo_gonzalo:
+    "hola! cómo andás?\nsoy gonzalo, de agendapp. contame a qué te dedicás así te explico con tu caso",
 } as const;
 
 export type OpeningVariant = keyof typeof OPENING_VARIANTS;
 
 /** Variantes que se están probando ahora. */
-export const ACTIVE_OPENING_VARIANTS: OpeningVariant[] = ["explica_y_pregunta", "solo_pregunta"];
+export const ACTIVE_OPENING_VARIANTS: OpeningVariant[] = ["saludo_gonzalo"];
 
 /** La variante con menos leads asignados (muestras parejas aunque entren pocos por día). */
 export function pickOpeningVariant(
